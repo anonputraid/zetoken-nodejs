@@ -1,0 +1,28 @@
+{
+  "name": "zetoken",
+  "version": "1.0.0",
+  "description": "Zetoken is a Nodejs library for creating simple tokens.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "token",
+    "security",
+    "encryption",
+    "aes-gcm",
+    "crypto",
+    "numeric-token",
+    "generator",
+    "interoperable"
+  ],
+  "author": "Anonputraid",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": ""
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}
