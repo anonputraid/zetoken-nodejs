@@ -17,11 +17,16 @@ class Zetoken {
         return crypto.pbkdf2Sync(seed, startPoint, iterations, 16, 'sha512');
     }
 
-    encode(text, keyId = null, secretKey = null) {
+    encode(text, keyId = null, secretKey = null, ttl = null) {
         const [kid, sec, iterations] = this.resolveKeys(keyId, secretKey);
 
         if (!kid || !sec) {
             return false;
+        }
+
+        if (ttl !== null && typeof ttl === 'number' && ttl > 0) {
+            const expTime = Math.floor(Date.now() / 1000) + ttl;
+            text = `${text}__ZTX__${expTime}`;
         }
 
         const aesKey = this.deriveCryptographicKey(kid, sec, iterations);
@@ -45,7 +50,7 @@ class Zetoken {
         return numericResult;
     }
 
-    decode(cipherText, keyId = null, secretKey = null) {
+    decode(cipherText, keyId = null, secretKey = null, leeway = 60) {
         const [kid, sec, iterations] = this.resolveKeys(keyId, secretKey);
 
         if (!kid || !sec) {
@@ -77,13 +82,31 @@ class Zetoken {
         try {
             let decrypted = decipher.update(actualCipherText);
             decrypted = Buffer.concat([decrypted, decipher.final()]);
-            return decrypted.toString('utf8');
+            const decryptedText = decrypted.toString('utf8');
+
+            const pos = decryptedText.lastIndexOf('__ZTX__');
+            if (pos !== -1) {
+                const expString = decryptedText.substring(pos + 7); 
+                
+                if (/^\d+$/.test(expString)) {
+                    const expTime = parseInt(expString, 10);
+                    const currentTime = Math.floor(Date.now() / 1000);
+                    
+                    if ((currentTime - leeway) > expTime) {
+                        return false;
+                    }
+
+                    return decryptedText.substring(0, pos);
+                }
+            }
+
+            return decryptedText;
         } catch (error) {
             return false;
         }
     }
 
-    sign(text, keyId, secretKey = null) {
+    sign(text, keyId, secretKey = null, ttl = null) {
         const [masterAccessKey, masterSecretKey] = this.resolveKeys(null, secretKey);
 
         if (!masterAccessKey || !masterSecretKey || !keyId) {
@@ -92,10 +115,10 @@ class Zetoken {
 
         const layeredKeyId = `${masterAccessKey}::${keyId}`;
 
-        return this.encode(text, layeredKeyId, masterSecretKey);
+        return this.encode(text, layeredKeyId, masterSecretKey, ttl);
     }
 
-    verifySign(token, keyId, secretKey = null) {
+    verifySign(token, keyId, secretKey = null, leeway = 60) {
         const [masterAccessKey, masterSecretKey] = this.resolveKeys(null, secretKey);
 
         if (!masterAccessKey || !masterSecretKey || !keyId) {
@@ -104,7 +127,7 @@ class Zetoken {
 
         const layeredKeyId = `${masterAccessKey}::${keyId}`;
 
-        return this.decode(token, layeredKeyId, masterSecretKey);
+        return this.decode(token, layeredKeyId, masterSecretKey, leeway);
     }
 }
 
